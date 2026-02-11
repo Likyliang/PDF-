@@ -143,7 +143,7 @@ class PDFSplitterApp:
 
     def _build_step1(self):
         frame = ttk.LabelFrame(self.main_frame, text="  第一步：选择要拆分的PDF文件  ",
-                               padding=12, **_bs('primary'))
+                               padding=12)
         frame.pack(fill=tk.X, pady=(0, 10))
 
         row = ttk.Frame(frame)
@@ -159,7 +159,7 @@ class PDFSplitterApp:
 
     def _build_step2(self):
         frame = ttk.LabelFrame(self.main_frame, text="  第二步：选择拆分方式  ",
-                               padding=12, **_bs('info'))
+                               padding=12)
         frame.pack(fill=tk.X, pady=(0, 10))
 
         # 模式选择
@@ -315,7 +315,7 @@ class PDFSplitterApp:
 
     def _build_step3(self):
         frame = ttk.LabelFrame(self.main_frame, text="  第三步：开始拆分  ",
-                               padding=12, **_bs('success'))
+                               padding=12)
         frame.pack(fill=tk.X, pady=(0, 10))
 
         # 输出路径
@@ -351,7 +351,7 @@ class PDFSplitterApp:
 
     def _build_log(self):
         frame = ttk.LabelFrame(self.main_frame, text="  运行日志  ",
-                               padding=8, **_bs('secondary'))
+                               padding=8)
         frame.pack(fill=tk.BOTH, expand=True, pady=(0, 5))
 
         self.log_text = tk.Text(frame, height=8, wrap=tk.WORD, font=(MONO_FONT, 9),
