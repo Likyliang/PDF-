@@ -74,15 +74,6 @@ class PDFSplitterApp:
         self.output_dir = None
         self.is_running = False
 
-        # ---------- 样式（仅标准 ttk 时手动配置，ttkbootstrap 自带主题） ----------
-        if not MODERN_UI:
-            style = ttk.Style()
-            default_font = (UI_FONT, 10)
-            style.configure('.', font=default_font)
-            style.configure('Title.TLabel', font=(UI_FONT, 18, 'bold'))
-            style.configure('Big.TButton', font=(UI_FONT, 11), padding=6)
-            style.configure('Info.TLabel', foreground='#555555', font=(UI_FONT, 9))
-
         # ---------- 构建界面 ----------
         self._build_ui()
         self._center_window(860, 740)
@@ -104,7 +95,7 @@ class PDFSplitterApp:
 
         canvas = tk.Canvas(outer, highlightthickness=0)
         scrollbar = ttk.Scrollbar(outer, orient=tk.VERTICAL, command=canvas.yview)
-        self.main_frame = ttk.Frame(canvas, padding=20)
+        self.main_frame = ttk.Frame(canvas)
 
         self.main_frame.bind('<Configure>', lambda e: canvas.configure(scrollregion=canvas.bbox('all')))
         canvas.create_window((0, 0), window=self.main_frame, anchor='nw')
@@ -122,28 +113,27 @@ class PDFSplitterApp:
         else:  # Windows
             canvas.bind_all('<MouseWheel>', lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), 'units'))
 
-        # 标题
-        if MODERN_UI:
-            ttk.Label(self.main_frame, text="PDF 拆分工具",
-                      font=(UI_FONT, 20, 'bold'), bootstyle="primary").pack(pady=(0, 3))
-            ttk.Label(self.main_frame, text="轻松将一本PDF拆分为多个小文件，原文件不会被修改",
-                      font=(UI_FONT, 10), bootstyle="secondary").pack(pady=(0, 18))
-        else:
-            ttk.Label(self.main_frame, text="PDF 拆分工具",
-                      style='Title.TLabel').pack(pady=(0, 5))
-            ttk.Label(self.main_frame, text="轻松将一本PDF拆分为多个小文件，原文件不会被修改",
-                      style='Info.TLabel').pack(pady=(0, 15))
+        # 内容区（用 tk.Frame 包裹加内边距，避免 ttk padding 兼容问题）
+        content = tk.Frame(self.main_frame)
+        content.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        self._content = content
 
-        self._build_step1()
-        self._build_step2()
-        self._build_step3()
-        self._build_log()
+        # 标题
+        tk.Label(content, text="PDF 拆分工具",
+                 font=(UI_FONT, 20, 'bold'), fg='#0d6efd').pack(pady=(0, 3))
+        tk.Label(content, text="轻松将一本PDF拆分为多个小文件，原文件不会被修改",
+                 font=(UI_FONT, 10), fg='#6c757d').pack(pady=(0, 18))
+
+        self._build_step1(content)
+        self._build_step2(content)
+        self._build_step3(content)
+        self._build_log(content)
 
     # ---------- 第一步：选择文件 ----------
 
-    def _build_step1(self):
-        frame = ttk.LabelFrame(self.main_frame, text="  第一步：选择要拆分的PDF文件  ",
-                               padding=12)
+    def _build_step1(self, parent):
+        frame = tk.LabelFrame(parent, text="  第一步：选择要拆分的PDF文件  ",
+                              font=(UI_FONT, 10), padx=12, pady=12)
         frame.pack(fill=tk.X, pady=(0, 10))
 
         row = ttk.Frame(frame)
@@ -152,14 +142,15 @@ class PDFSplitterApp:
         ttk.Button(row, text="  选择PDF文件 ...  ", command=self._select_file,
                    **_bs('primary-outline')).pack(side=tk.LEFT)
 
-        self.file_info_label = ttk.Label(row, text="  尚未选择文件", foreground='gray')
+        self.file_info_label = tk.Label(row, text="  尚未选择文件",
+                                        font=(UI_FONT, 10), fg='gray')
         self.file_info_label.pack(side=tk.LEFT, padx=(15, 0))
 
     # ---------- 第二步：选择拆分方式 ----------
 
-    def _build_step2(self):
-        frame = ttk.LabelFrame(self.main_frame, text="  第二步：选择拆分方式  ",
-                               padding=12)
+    def _build_step2(self, parent):
+        frame = tk.LabelFrame(parent, text="  第二步：选择拆分方式  ",
+                              font=(UI_FONT, 10), padx=12, pady=12)
         frame.pack(fill=tk.X, pady=(0, 10))
 
         # 模式选择
@@ -200,14 +191,14 @@ class PDFSplitterApp:
         top_row = ttk.Frame(self.chapter_panel)
         top_row.pack(fill=tk.X, pady=(0, 6))
 
-        ttk.Label(top_row, text="拆分层级：").pack(side=tk.LEFT)
+        tk.Label(top_row, text="拆分层级：", font=(UI_FONT, 10)).pack(side=tk.LEFT)
         level_combo = ttk.Combobox(top_row, textvariable=self.level_var, width=25, state='readonly',
                                    values=["1", "2", "3"])
         level_combo.pack(side=tk.LEFT, padx=(4, 0))
         level_combo.bind('<<ComboboxSelected>>', lambda e: self._refresh_chapters())
 
-        ttk.Label(top_row, text="（1=按章拆分，2=按节拆分，3=更细）",
-                  style='Info.TLabel').pack(side=tk.LEFT, padx=(8, 0))
+        tk.Label(top_row, text="（1=按章拆分，2=按节拆分，3=更细）",
+                 font=(UI_FONT, 9), fg='#6c757d').pack(side=tk.LEFT, padx=(8, 0))
 
         # 按钮行
         btn_row = ttk.Frame(self.chapter_panel)
@@ -235,25 +226,25 @@ class PDFSplitterApp:
         self.chapter_canvas = canvas
 
         # 提示
-        self.chapter_hint = ttk.Label(self.chapter_panel, text="请先选择一个PDF文件", foreground='gray')
+        self.chapter_hint = tk.Label(self.chapter_panel, text="请先选择一个PDF文件",
+                                     font=(UI_FONT, 10), fg='gray')
         self.chapter_hint.pack(pady=8)
 
     def _build_custom_panel(self):
-        hint = ttk.Label(self.custom_panel,
-                         text="在下方添加要拆分的页码范围，\"名称\"可不填（将自动编号）。\n"
-                              "页码从1开始，例如：第1页到第10页，就填  起始页=1  结束页=10",
-                         style='Info.TLabel', justify=tk.LEFT)
-        hint.pack(anchor=tk.W, pady=(0, 8))
+        tk.Label(self.custom_panel,
+                 text="在下方添加要拆分的页码范围，\"名称\"可不填（将自动编号）。\n"
+                      "页码从1开始，例如：第1页到第10页，就填  起始页=1  结束页=10",
+                 font=(UI_FONT, 9), fg='#6c757d', justify=tk.LEFT).pack(anchor=tk.W, pady=(0, 8))
 
         # 表头
         header = ttk.Frame(self.custom_panel)
         header.pack(fill=tk.X)
-        ttk.Label(header, text="起始页", width=10, anchor=tk.CENTER,
-                  font=(UI_FONT, 9, 'bold')).pack(side=tk.LEFT, padx=(0, 4))
-        ttk.Label(header, text="结束页", width=10, anchor=tk.CENTER,
-                  font=(UI_FONT, 9, 'bold')).pack(side=tk.LEFT, padx=(0, 4))
-        ttk.Label(header, text="名称（可不填）", width=25, anchor=tk.CENTER,
-                  font=(UI_FONT, 9, 'bold')).pack(side=tk.LEFT, padx=(0, 4))
+        tk.Label(header, text="起始页", width=10, anchor=tk.CENTER,
+                 font=(UI_FONT, 9, 'bold')).pack(side=tk.LEFT, padx=(0, 4))
+        tk.Label(header, text="结束页", width=10, anchor=tk.CENTER,
+                 font=(UI_FONT, 9, 'bold')).pack(side=tk.LEFT, padx=(0, 4))
+        tk.Label(header, text="名称（可不填）", width=25, anchor=tk.CENTER,
+                 font=(UI_FONT, 9, 'bold')).pack(side=tk.LEFT, padx=(0, 4))
 
         # 行容器
         self.custom_rows_frame = ttk.Frame(self.custom_panel)
@@ -269,20 +260,19 @@ class PDFSplitterApp:
     def _build_size_panel(self):
         """构建按大小拆分面板"""
         # 说明文字
-        hint = ttk.Label(self.size_panel,
-                         text="自动根据文件大小计算拆分方案，确保每份不超过指定大小。\n"
-                              "适合没有书签的大PDF文件，省去手动计算页码的麻烦。",
-                         style='Info.TLabel', justify=tk.LEFT)
-        hint.pack(anchor=tk.W, pady=(0, 10))
+        tk.Label(self.size_panel,
+                 text="自动根据文件大小计算拆分方案，确保每份不超过指定大小。\n"
+                      "适合没有书签的大PDF文件，省去手动计算页码的麻烦。",
+                 font=(UI_FONT, 9), fg='#6c757d', justify=tk.LEFT).pack(anchor=tk.W, pady=(0, 10))
 
         # 设置行：最大文件大小
         setting_row = ttk.Frame(self.size_panel)
         setting_row.pack(fill=tk.X, pady=(0, 8))
 
-        ttk.Label(setting_row, text="每份最大大小：").pack(side=tk.LEFT)
+        tk.Label(setting_row, text="每份最大大小：", font=(UI_FONT, 10)).pack(side=tk.LEFT)
         size_entry = ttk.Entry(setting_row, textvariable=self.max_size_mb, width=8, justify=tk.CENTER)
         size_entry.pack(side=tk.LEFT, padx=(4, 4))
-        ttk.Label(setting_row, text="MB").pack(side=tk.LEFT)
+        tk.Label(setting_row, text="MB", font=(UI_FONT, 10)).pack(side=tk.LEFT)
 
         ttk.Button(setting_row, text="重新计算建议", command=self._calc_size_split,
                    **_bs('warning-outline')).pack(side=tk.LEFT, padx=(20, 0))
@@ -291,7 +281,8 @@ class PDFSplitterApp:
         self.size_info_frame = ttk.Frame(self.size_panel)
         self.size_info_frame.pack(fill=tk.X, pady=(0, 8))
 
-        self.size_info_label = ttk.Label(self.size_info_frame, text="请先选择一个PDF文件", foreground='gray')
+        self.size_info_label = tk.Label(self.size_info_frame, text="请先选择一个PDF文件",
+                                        font=(UI_FONT, 10), fg='gray')
         self.size_info_label.pack(anchor=tk.W)
 
         # 建议方案展示区域（带滚动条）
@@ -313,17 +304,17 @@ class PDFSplitterApp:
 
     # ---------- 第三步：开始拆分 ----------
 
-    def _build_step3(self):
-        frame = ttk.LabelFrame(self.main_frame, text="  第三步：开始拆分  ",
-                               padding=12)
+    def _build_step3(self, parent):
+        frame = tk.LabelFrame(parent, text="  第三步：开始拆分  ",
+                              font=(UI_FONT, 10), padx=12, pady=12)
         frame.pack(fill=tk.X, pady=(0, 10))
 
         # 输出路径
         out_row = ttk.Frame(frame)
         out_row.pack(fill=tk.X, pady=(0, 8))
-        ttk.Label(out_row, text="输出位置：").pack(side=tk.LEFT)
-        self.output_label = ttk.Label(out_row, text="（与源文件同一目录，自动创建文件夹）",
-                                      foreground='gray')
+        tk.Label(out_row, text="输出位置：", font=(UI_FONT, 10)).pack(side=tk.LEFT)
+        self.output_label = tk.Label(out_row, text="（与源文件同一目录，自动创建文件夹）",
+                                     font=(UI_FONT, 10), fg='gray')
         self.output_label.pack(side=tk.LEFT, padx=(4, 0))
 
         # 操作按钮
@@ -344,14 +335,14 @@ class PDFSplitterApp:
                                         **_bs('success-striped'))
         self.progress.pack(fill=tk.X, pady=(10, 4))
 
-        self.status_label = ttk.Label(frame, text="就绪", foreground='#555555')
+        self.status_label = tk.Label(frame, text="就绪", font=(UI_FONT, 10), fg='#555555')
         self.status_label.pack(anchor=tk.W)
 
     # ---------- 日志区域 ----------
 
-    def _build_log(self):
-        frame = ttk.LabelFrame(self.main_frame, text="  运行日志  ",
-                               padding=8)
+    def _build_log(self, parent):
+        frame = tk.LabelFrame(parent, text="  运行日志  ",
+                              font=(UI_FONT, 10), padx=8, pady=8)
         frame.pack(fill=tk.BOTH, expand=True, pady=(0, 5))
 
         self.log_text = tk.Text(frame, height=8, wrap=tk.WORD, font=(MONO_FONT, 9),
@@ -394,14 +385,14 @@ class PDFSplitterApp:
             fname = os.path.basename(self.pdf_path)
             self.file_info_label.configure(
                 text=f"  {fname}   （共 {self.total_pages} 页）",
-                foreground='black'
+                fg='black'
             )
 
             self.output_dir = os.path.join(
                 os.path.dirname(self.pdf_path),
                 sanitize_filename(os.path.splitext(fname)[0]) + "_拆分结果"
             )
-            self.output_label.configure(text=self.output_dir, foreground='black')
+            self.output_label.configure(text=self.output_dir, fg='black')
 
             self._refresh_chapters()
             self._log(f"文件加载成功，共 {self.total_pages} 页")
@@ -489,7 +480,7 @@ class PDFSplitterApp:
             cb.pack(side=tk.LEFT)
 
             text = f"{ch['title']}    （第 {ch['start']} - {ch['end']} 页）"
-            ttk.Label(row, text=text).pack(side=tk.LEFT, padx=(4, 0))
+            tk.Label(row, text=text, font=(UI_FONT, 10)).pack(side=tk.LEFT, padx=(4, 0))
 
             self.chapter_vars.append((var, ch))
 
@@ -509,7 +500,7 @@ class PDFSplitterApp:
         self.size_split_tasks.clear()
 
         if not self.pdf_doc or not self.pdf_path:
-            self.size_info_label.configure(text="请先选择一个PDF文件", foreground='gray')
+            self.size_info_label.configure(text="请先选择一个PDF文件", fg='gray')
             return
 
         # 获取最大大小限制
@@ -529,19 +520,13 @@ class PDFSplitterApp:
         if file_size <= max_bytes:
             self.size_info_label.configure(
                 text=f"文件大小：{file_size_mb:.1f} MB，未超过 {max_mb:.0f} MB，无需拆分。",
-                foreground='green'
+                fg='green'
             )
             return
 
-        # 通过逐段估算每页实际大小来精确计算拆分点
-        # 先用均匀估算得到初始分段数
         avg_page_size = file_size / self.total_pages
         pages_per_part = max(1, int(max_bytes / avg_page_size))
         num_parts = -(-self.total_pages // pages_per_part)  # 向上取整
-
-        # 精确计算：逐段生成临时PDF检测实际大小，找到最优拆分点
-        # 但这样太慢，采用折中方案：按页数均匀分配，然后提示用户
-        # 实际上PDF页面大小差异不会太大，均匀分配足够实用
 
         tasks = []
         for i in range(num_parts):
@@ -558,7 +543,7 @@ class PDFSplitterApp:
             text=f"文件大小：{file_size_mb:.1f} MB  |  共 {self.total_pages} 页  |  "
                  f"平均每页 {avg_page_size/1024:.1f} KB\n"
                  f"建议拆分为 {num_parts} 份，每份约 {pages_per_part} 页（预估不超过 {max_mb:.0f} MB）",
-            foreground='#333333'
+            fg='#333333'
         )
 
         # 展示拆分方案
@@ -570,7 +555,7 @@ class PDFSplitterApp:
             text = (f"第 {i+1} 份：第 {start} - {end} 页  "
                     f"（{page_count} 页，预估 {est_mb:.1f} MB）")
 
-            ttk.Label(row, text=text, font=(UI_FONT, 9)).pack(side=tk.LEFT, padx=(4, 0))
+            tk.Label(row, text=text, font=(UI_FONT, 9)).pack(side=tk.LEFT, padx=(4, 0))
 
     # ================================================================
     #  自定义范围行管理
