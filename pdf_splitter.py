@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-PDF拆分工具 v1.1
+PDF拆分工具 v1.2
 支持按章节（书签）拆分、自定义页码范围拆分和按大小均匀拆分
 """
 
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import filedialog, messagebox
 import os
 import sys
 import shutil
 import threading
 import re
 import subprocess
+
+# 优先使用 ttkbootstrap（现代 UI），否则回退到标准 ttk
+try:
+    import ttkbootstrap as ttk
+    from ttkbootstrap.constants import *
+    MODERN_UI = True
+except ImportError:
+    from tkinter import ttk
+    MODERN_UI = False
 
 try:
     import fitz  # PyMuPDF
@@ -40,10 +49,15 @@ def _get_platform_fonts():
 UI_FONT, MONO_FONT = _get_platform_fonts()
 
 
+def _bs(style_str):
+    """返回 bootstyle 参数（仅 ttkbootstrap 可用时生效）"""
+    return {'bootstyle': style_str} if MODERN_UI else {}
+
+
 class PDFSplitterApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("PDF 拆分工具 v1.1")
+        self.root.title("PDF 拆分工具 v1.2")
         self.root.minsize(800, 700)
 
         # ---------- 状态变量 ----------
@@ -60,15 +74,14 @@ class PDFSplitterApp:
         self.output_dir = None
         self.is_running = False
 
-        # ---------- 样式 ----------
-        style = ttk.Style()
-        default_font = (UI_FONT, 10)
-        style.configure('.', font=default_font)
-        style.configure('Title.TLabel', font=(UI_FONT, 18, 'bold'))
-        style.configure('StepTitle.TLabel', font=(UI_FONT, 11, 'bold'))
-        style.configure('Big.TButton', font=(UI_FONT, 11), padding=6)
-        style.configure('Success.TLabel', foreground='green', font=(UI_FONT, 10, 'bold'))
-        style.configure('Info.TLabel', foreground='#555555', font=(UI_FONT, 9))
+        # ---------- 样式（仅标准 ttk 时手动配置，ttkbootstrap 自带主题） ----------
+        if not MODERN_UI:
+            style = ttk.Style()
+            default_font = (UI_FONT, 10)
+            style.configure('.', font=default_font)
+            style.configure('Title.TLabel', font=(UI_FONT, 18, 'bold'))
+            style.configure('Big.TButton', font=(UI_FONT, 11), padding=6)
+            style.configure('Info.TLabel', foreground='#555555', font=(UI_FONT, 9))
 
         # ---------- 构建界面 ----------
         self._build_ui()
@@ -110,9 +123,16 @@ class PDFSplitterApp:
             canvas.bind_all('<MouseWheel>', lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), 'units'))
 
         # 标题
-        ttk.Label(self.main_frame, text="PDF 拆分工具", style='Title.TLabel').pack(pady=(0, 5))
-        ttk.Label(self.main_frame, text="轻松将一本PDF拆分为多个小文件，原文件不会被修改",
-                  style='Info.TLabel').pack(pady=(0, 15))
+        if MODERN_UI:
+            ttk.Label(self.main_frame, text="PDF 拆分工具",
+                      font=(UI_FONT, 20, 'bold'), bootstyle="primary").pack(pady=(0, 3))
+            ttk.Label(self.main_frame, text="轻松将一本PDF拆分为多个小文件，原文件不会被修改",
+                      font=(UI_FONT, 10), bootstyle="secondary").pack(pady=(0, 18))
+        else:
+            ttk.Label(self.main_frame, text="PDF 拆分工具",
+                      style='Title.TLabel').pack(pady=(0, 5))
+            ttk.Label(self.main_frame, text="轻松将一本PDF拆分为多个小文件，原文件不会被修改",
+                      style='Info.TLabel').pack(pady=(0, 15))
 
         self._build_step1()
         self._build_step2()
@@ -122,14 +142,15 @@ class PDFSplitterApp:
     # ---------- 第一步：选择文件 ----------
 
     def _build_step1(self):
-        frame = ttk.LabelFrame(self.main_frame, text="  第一步：选择要拆分的PDF文件  ", padding=12)
+        frame = ttk.LabelFrame(self.main_frame, text="  第一步：选择要拆分的PDF文件  ",
+                               padding=12, **_bs('primary'))
         frame.pack(fill=tk.X, pady=(0, 10))
 
         row = ttk.Frame(frame)
         row.pack(fill=tk.X)
 
-        ttk.Button(row, text="选择PDF文件 ...", command=self._select_file,
-                   style='Big.TButton').pack(side=tk.LEFT)
+        ttk.Button(row, text="  选择PDF文件 ...  ", command=self._select_file,
+                   **_bs('primary-outline')).pack(side=tk.LEFT)
 
         self.file_info_label = ttk.Label(row, text="  尚未选择文件", foreground='gray')
         self.file_info_label.pack(side=tk.LEFT, padx=(15, 0))
@@ -137,7 +158,8 @@ class PDFSplitterApp:
     # ---------- 第二步：选择拆分方式 ----------
 
     def _build_step2(self):
-        frame = ttk.LabelFrame(self.main_frame, text="  第二步：选择拆分方式  ", padding=12)
+        frame = ttk.LabelFrame(self.main_frame, text="  第二步：选择拆分方式  ",
+                               padding=12, **_bs('info'))
         frame.pack(fill=tk.X, pady=(0, 10))
 
         # 模式选择
@@ -190,8 +212,10 @@ class PDFSplitterApp:
         # 按钮行
         btn_row = ttk.Frame(self.chapter_panel)
         btn_row.pack(fill=tk.X, pady=(0, 6))
-        ttk.Button(btn_row, text="全选", command=lambda: self._toggle_all(True)).pack(side=tk.LEFT, padx=(0, 6))
-        ttk.Button(btn_row, text="取消全选", command=lambda: self._toggle_all(False)).pack(side=tk.LEFT)
+        ttk.Button(btn_row, text="全选", command=lambda: self._toggle_all(True),
+                   **_bs('secondary-outline')).pack(side=tk.LEFT, padx=(0, 6))
+        ttk.Button(btn_row, text="取消全选", command=lambda: self._toggle_all(False),
+                   **_bs('secondary-outline')).pack(side=tk.LEFT)
 
         # 章节列表（带滚动条）
         list_frame = ttk.Frame(self.chapter_panel)
@@ -236,7 +260,8 @@ class PDFSplitterApp:
         self.custom_rows_frame.pack(fill=tk.X, pady=(4, 0))
 
         # 添加按钮
-        ttk.Button(self.custom_panel, text="+ 添加一行", command=self._add_range_row).pack(anchor=tk.W, pady=(6, 0))
+        ttk.Button(self.custom_panel, text="+ 添加一行", command=self._add_range_row,
+                   **_bs('info-outline')).pack(anchor=tk.W, pady=(6, 0))
 
         # 默认添加一行
         self._add_range_row()
@@ -259,7 +284,8 @@ class PDFSplitterApp:
         size_entry.pack(side=tk.LEFT, padx=(4, 4))
         ttk.Label(setting_row, text="MB").pack(side=tk.LEFT)
 
-        ttk.Button(setting_row, text="重新计算建议", command=self._calc_size_split).pack(side=tk.LEFT, padx=(20, 0))
+        ttk.Button(setting_row, text="重新计算建议", command=self._calc_size_split,
+                   **_bs('warning-outline')).pack(side=tk.LEFT, padx=(20, 0))
 
         # 文件信息区域
         self.size_info_frame = ttk.Frame(self.size_panel)
@@ -288,7 +314,8 @@ class PDFSplitterApp:
     # ---------- 第三步：开始拆分 ----------
 
     def _build_step3(self):
-        frame = ttk.LabelFrame(self.main_frame, text="  第三步：开始拆分  ", padding=12)
+        frame = ttk.LabelFrame(self.main_frame, text="  第三步：开始拆分  ",
+                               padding=12, **_bs('success'))
         frame.pack(fill=tk.X, pady=(0, 10))
 
         # 输出路径
@@ -303,17 +330,18 @@ class PDFSplitterApp:
         btn_row = ttk.Frame(frame)
         btn_row.pack(fill=tk.X)
 
-        self.start_btn = ttk.Button(btn_row, text="开始拆分", command=self._start_split,
-                                    style='Big.TButton')
+        self.start_btn = ttk.Button(btn_row, text="  开始拆分  ", command=self._start_split,
+                                    **_bs('success'))
         self.start_btn.pack(side=tk.LEFT)
 
-        self.open_folder_btn = ttk.Button(btn_row, text="打开输出文件夹", command=self._open_output_folder,
-                                          style='Big.TButton')
+        self.open_folder_btn = ttk.Button(btn_row, text="  打开输出文件夹  ", command=self._open_output_folder,
+                                          **_bs('info-outline'))
         self.open_folder_btn.pack(side=tk.LEFT, padx=(10, 0))
         self.open_folder_btn.pack_forget()  # 初始隐藏
 
         # 进度条
-        self.progress = ttk.Progressbar(frame, mode='determinate', length=400)
+        self.progress = ttk.Progressbar(frame, mode='determinate', length=400,
+                                        **_bs('success-striped'))
         self.progress.pack(fill=tk.X, pady=(10, 4))
 
         self.status_label = ttk.Label(frame, text="就绪", foreground='#555555')
@@ -322,7 +350,8 @@ class PDFSplitterApp:
     # ---------- 日志区域 ----------
 
     def _build_log(self):
-        frame = ttk.LabelFrame(self.main_frame, text="  运行日志  ", padding=8)
+        frame = ttk.LabelFrame(self.main_frame, text="  运行日志  ",
+                               padding=8, **_bs('secondary'))
         frame.pack(fill=tk.BOTH, expand=True, pady=(0, 5))
 
         self.log_text = tk.Text(frame, height=8, wrap=tk.WORD, font=(MONO_FONT, 9),
@@ -561,7 +590,8 @@ class PDFSplitterApp:
         name_entry.pack(side=tk.LEFT, padx=(0, 4))
 
         remove_btn = ttk.Button(row_frame, text="删除", width=5,
-                                command=lambda: self._remove_range_row(row_frame))
+                                command=lambda: self._remove_range_row(row_frame),
+                                **_bs('danger-outline'))
         remove_btn.pack(side=tk.LEFT)
 
         self.custom_rows.append((row_frame, start_entry, end_entry, name_entry))
@@ -779,7 +809,11 @@ def main():
         )
         sys.exit(1)
 
-    root = tk.Tk()
+    if MODERN_UI:
+        root = ttk.Window(themename="cosmo")
+    else:
+        root = tk.Tk()
+
     app = PDFSplitterApp(root)
     root.mainloop()
 
