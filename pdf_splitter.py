@@ -27,6 +27,19 @@ def sanitize_filename(name):
     return name if name else '未命名'
 
 
+def _get_platform_fonts():
+    """根据操作系统返回合适的字体"""
+    if sys.platform == 'darwin':
+        return 'PingFang SC', 'Menlo'
+    elif sys.platform == 'win32':
+        return 'Microsoft YaHei UI', 'Consolas'
+    else:  # Linux
+        return 'Noto Sans CJK SC', 'Monospace'
+
+
+UI_FONT, MONO_FONT = _get_platform_fonts()
+
+
 class PDFSplitterApp:
     def __init__(self, root):
         self.root = root
@@ -49,13 +62,13 @@ class PDFSplitterApp:
 
         # ---------- 样式 ----------
         style = ttk.Style()
-        default_font = ('Microsoft YaHei UI', 10)
+        default_font = (UI_FONT, 10)
         style.configure('.', font=default_font)
-        style.configure('Title.TLabel', font=('Microsoft YaHei UI', 18, 'bold'))
-        style.configure('StepTitle.TLabel', font=('Microsoft YaHei UI', 11, 'bold'))
-        style.configure('Big.TButton', font=('Microsoft YaHei UI', 11), padding=6)
-        style.configure('Success.TLabel', foreground='green', font=('Microsoft YaHei UI', 10, 'bold'))
-        style.configure('Info.TLabel', foreground='#555555', font=('Microsoft YaHei UI', 9))
+        style.configure('Title.TLabel', font=(UI_FONT, 18, 'bold'))
+        style.configure('StepTitle.TLabel', font=(UI_FONT, 11, 'bold'))
+        style.configure('Big.TButton', font=(UI_FONT, 11), padding=6)
+        style.configure('Success.TLabel', foreground='green', font=(UI_FONT, 10, 'bold'))
+        style.configure('Info.TLabel', foreground='#555555', font=(UI_FONT, 9))
 
         # ---------- 构建界面 ----------
         self._build_ui()
@@ -87,10 +100,14 @@ class PDFSplitterApp:
         canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # 鼠标滚轮支持
-        def _on_mousewheel(event):
-            canvas.yview_scroll(int(-1 * (event.delta / 120)), 'units')
-        canvas.bind_all('<MouseWheel>', _on_mousewheel)
+        # 鼠标滚轮支持（跨平台）
+        if sys.platform == 'darwin':
+            canvas.bind_all('<MouseWheel>', lambda e: canvas.yview_scroll(-e.delta, 'units'))
+        elif sys.platform == 'linux':
+            canvas.bind_all('<Button-4>', lambda e: canvas.yview_scroll(-1, 'units'))
+            canvas.bind_all('<Button-5>', lambda e: canvas.yview_scroll(1, 'units'))
+        else:  # Windows
+            canvas.bind_all('<MouseWheel>', lambda e: canvas.yview_scroll(int(-1 * (e.delta / 120)), 'units'))
 
         # 标题
         ttk.Label(self.main_frame, text="PDF 拆分工具", style='Title.TLabel').pack(pady=(0, 5))
@@ -208,11 +225,11 @@ class PDFSplitterApp:
         header = ttk.Frame(self.custom_panel)
         header.pack(fill=tk.X)
         ttk.Label(header, text="起始页", width=10, anchor=tk.CENTER,
-                  font=('Microsoft YaHei UI', 9, 'bold')).pack(side=tk.LEFT, padx=(0, 4))
+                  font=(UI_FONT, 9, 'bold')).pack(side=tk.LEFT, padx=(0, 4))
         ttk.Label(header, text="结束页", width=10, anchor=tk.CENTER,
-                  font=('Microsoft YaHei UI', 9, 'bold')).pack(side=tk.LEFT, padx=(0, 4))
+                  font=(UI_FONT, 9, 'bold')).pack(side=tk.LEFT, padx=(0, 4))
         ttk.Label(header, text="名称（可不填）", width=25, anchor=tk.CENTER,
-                  font=('Microsoft YaHei UI', 9, 'bold')).pack(side=tk.LEFT, padx=(0, 4))
+                  font=(UI_FONT, 9, 'bold')).pack(side=tk.LEFT, padx=(0, 4))
 
         # 行容器
         self.custom_rows_frame = ttk.Frame(self.custom_panel)
@@ -308,7 +325,7 @@ class PDFSplitterApp:
         frame = ttk.LabelFrame(self.main_frame, text="  运行日志  ", padding=8)
         frame.pack(fill=tk.BOTH, expand=True, pady=(0, 5))
 
-        self.log_text = tk.Text(frame, height=8, wrap=tk.WORD, font=('Consolas', 9),
+        self.log_text = tk.Text(frame, height=8, wrap=tk.WORD, font=(MONO_FONT, 9),
                                 state=tk.DISABLED, bg='#fafafa')
         log_sb = ttk.Scrollbar(frame, orient=tk.VERTICAL, command=self.log_text.yview)
         self.log_text.configure(yscrollcommand=log_sb.set)
@@ -524,7 +541,7 @@ class PDFSplitterApp:
             text = (f"第 {i+1} 份：第 {start} - {end} 页  "
                     f"（{page_count} 页，预估 {est_mb:.1f} MB）")
 
-            ttk.Label(row, text=text, font=('Microsoft YaHei UI', 9)).pack(side=tk.LEFT, padx=(4, 0))
+            ttk.Label(row, text=text, font=(UI_FONT, 9)).pack(side=tk.LEFT, padx=(4, 0))
 
     # ================================================================
     #  自定义范围行管理
